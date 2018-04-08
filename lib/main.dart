@@ -12,15 +12,16 @@ class MyApp extends StatelessWidget {
       theme: new ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: new MyHomePage(title: 'Flutter Main Chat Home Page'),
+      home: new MyHomePage(title: 'Flutter Main Chat Home Page', channel: new IOWebSocketChannel.connect("ws://wschat-ht.herokuapp.com"),),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+  MyHomePage({Key key, this.title, this.channel}) : super(key: key);
 
   final String title;
+  final IOWebSocketChannel channel;
 
   @override
   _MyHomePageState createState() => new _MyHomePageState();
@@ -39,13 +40,21 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       body: new Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: <Widget>[
-          new Expanded(
-            child: new ListView.builder(
-              itemBuilder: (_, int index) => messages[index],
-              itemCount: messages.length,
-              reverse: true,
-            ),
-          ),
+//          new Expanded(
+//            child: new ListView.builder(
+//              itemBuilder: (_, int index) => messages[index],
+//              itemCount: messages.length,
+//              reverse: true,
+//            ),
+//          ),
+        new StreamBuilder(
+          stream: widget.channel.stream,
+            builder: (context, snapshot) {
+              return new Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: new Text(snapshot.hasData ? '${snapshot.data}' : ''),
+              );
+            }),
           new Row(
             mainAxisSize: MainAxisSize.max,
             children: <Widget>[
@@ -101,6 +110,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         animationController: new AnimationController(
             vsync: this, duration: new Duration(milliseconds: 500)),
       );
+      widget.channel.sink.add(messageController.text);
       setState(() {
         messages.insert(0, message);
         messageController.clear();
@@ -114,6 +124,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     for (Message message in messages) {
       message.animationController.dispose();
     }
+    widget.channel.sink.close();
     super.dispose();
   }
 }
