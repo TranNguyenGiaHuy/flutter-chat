@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
       theme: new ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: new MyHomePage(title: 'Flutter Main Chat Home Page', channel: new IOWebSocketChannel.connect("ws://wschat-ht.herokuapp.com"),),
+      home: new MyHomePage(title: 'Flutter Main Chat Home Page', channel: new IOWebSocketChannel.connect("ws://localhost:8888"),),
     );
   }
 }
