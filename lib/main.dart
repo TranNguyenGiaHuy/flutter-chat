@@ -1,187 +1,97 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:flutter/material.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'dart:convert';
 
 void main() => runApp(new MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    final title = 'WebSocket Demo';
     return new MaterialApp(
-      title: 'WS Chat App',
-      theme: new ThemeData(
-        primarySwatch: Colors.blue,
+      title: title,
+      home: new MyHomePage(
+        title: title,
+        channel: new IOWebSocketChannel.connect(
+            'ws://nodejs-ws-server.herokuapp.com/'),
       ),
-      home: new MyHomePage(title: 'Flutter Main Chat Home Page', channel: new IOWebSocketChannel.connect("ws://localhost:8888"),),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title, this.channel}) : super(key: key);
-
   final String title;
-  final IOWebSocketChannel channel;
+  final WebSocketChannel channel;
+
+  MyHomePage({Key key, @required this.title, @required this.channel})
+      : super(key: key);
 
   @override
   _MyHomePageState createState() => new _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
-  int count = 0;
-  final List<Message> messages = <Message>[];
-  final TextEditingController messageController = new TextEditingController();
-  final TextEditingController userNameController = new TextEditingController();
+class _MyHomePageState extends State<MyHomePage> {
+  TextEditingController _controller = new TextEditingController();
+  var currentText = '';
 
   @override
   Widget build(BuildContext context) {
     return new Scaffold(
-      appBar: new AppBar(title: new Text(widget.title)),
-      body: new Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: <Widget>[
-//          new Expanded(
-//            child: new ListView.builder(
-//              itemBuilder: (_, int index) => messages[index],
-//              itemCount: messages.length,
-//              reverse: true,
-//            ),
-//          ),
-        new StreamBuilder(
-          stream: widget.channel.stream,
-            builder: (context, snapshot) {
-              return new Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24.0),
-                child: new Text(snapshot.hasData ? '${snapshot.data}' : ''),
-              );
-            }),
-          new Row(
-            mainAxisSize: MainAxisSize.max,
-            children: <Widget>[
-              new Expanded(
-                  child: new TextField(
-                controller: userNameController,
-                style: new TextStyle(color: Colors.blue),
-                decoration: new InputDecoration(
-                    contentPadding: const EdgeInsets.all(8.0),
-                    hintText: "User Name"),
-              ))
-            ],
-          ),
-          new Row(
-            mainAxisSize: MainAxisSize.max,
-            children: <Widget>[
-              new Expanded(
-                  child: new TextField(
-                controller: messageController,
-                style: new TextStyle(color: Colors.blue),
-                decoration: new InputDecoration(
-                    contentPadding: const EdgeInsets.all(8.0),
-                    hintText: "Message"),
-              ))
-            ],
-          ),
-          new Row(
-            mainAxisSize: MainAxisSize.max,
-            children: <Widget>[
-              new Expanded(
-                  child: new MaterialButton(
-                onPressed: () {
-                  sendMessage();
-                },
-                child: const Text("Send"),
-                textTheme: ButtonTextTheme.accent,
-                textColor: Colors.white,
-                color: Colors.blue,
-              ))
-            ],
-          )
-        ],
+      appBar: new AppBar(
+        title: new Text(widget.title),
       ),
+      body: new Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: new Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            new Form(
+              child: new TextFormField(
+                controller: _controller,
+                decoration: new InputDecoration(labelText: 'Send a message'),
+              ),
+            ),
+            new StreamBuilder(
+              stream: widget.channel.stream,
+              builder: (context, snapshot) {
+                Map decodedData = JSON.decode(snapshot.data);
+                if (decodedData['type'] == 'message') {
+                  currentText = decodedData['data'];
+                }
+                return new Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24.0),
+                  child: new Text(
+                      (snapshot.hasData) && decodedData['type'] == 'message'
+                          ? '${decodedData['data']}'
+                          : currentText),
+                );
+              },
+            )
+          ],
+        ),
+      ),
+      floatingActionButton: new FloatingActionButton(
+        onPressed: _sendMessage,
+        tooltip: 'Send message',
+        child: new Icon(Icons.send),
+      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 
-  void sendMessage() {
-    if (userNameController.text.length != 0 &&
-        messageController.text.length != 0) {
-      Message message = new Message(
-        username: userNameController.text,
-        content: messageController.text,
-        animationController: new AnimationController(
-            vsync: this, duration: new Duration(milliseconds: 500)),
-      );
-      widget.channel.sink.add(messageController.text);
-      setState(() {
-        messages.insert(0, message);
-        messageController.clear();
-      });
-      message.animationController.forward();
+  void _sendMessage() {
+    if (_controller.text.isNotEmpty) {
+      var data = new Map();
+      data['type'] = 'message';
+      data['data'] = _controller.text;
+      widget.channel.sink.add(JSON.encode(data));
     }
   }
 
   @override
   void dispose() {
-    for (Message message in messages) {
-      message.animationController.dispose();
-    }
     widget.channel.sink.close();
     super.dispose();
-  }
-}
-
-class Message extends StatelessWidget {
-  Message(
-      {this.username,
-      this.content,
-      this.isMine = true,
-      this.animationController});
-
-  final String username;
-  final String content;
-  final bool isMine;
-  final AnimationController animationController;
-
-  @override
-  Widget build(BuildContext context) {
-    return new SizeTransition(
-      sizeFactor:
-          new CurvedAnimation(parent: animationController, curve: Curves.ease),
-      axisAlignment: 0.0,
-      child: new Container(
-        margin: const EdgeInsets.all(8.0),
-        child: new Row(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment:
-              isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: <Widget>[
-            new Container(
-              margin: new EdgeInsets.all(8.0),
-              child: new CircleAvatar(
-                child: new Text(username[0]),
-              ),
-            ),
-            new Container(
-              padding: new EdgeInsets.only(left: 8.0, right: 8.0),
-              child: new Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  new Text(
-                    username,
-                    style: new TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                  ),
-                  new Container(
-                    margin: const EdgeInsets.only(top: 10.0),
-                    child: new Text(
-                      content,
-                      style: new TextStyle(color: Colors.black),
-                    ),
-                  )
-                ],
-              ),
-            )
-          ],
-        ),
-      ),
-    );
   }
 }
