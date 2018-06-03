@@ -1,6 +1,5 @@
-import 'package:web_socket_channel/io.dart';
 import 'package:flutter/material.dart';
-import 'chatScreen.dart';
+import 'loginScreen.dart';
 
 void main() => runApp(new MyApp());
 
@@ -10,7 +9,10 @@ class MyApp extends StatelessWidget {
     final title = 'WebSocket Demo';
     return new MaterialApp(
       title: title,
-      home: new ChatScreen(),
+      home: new LoginScreen(),
+      theme: new ThemeData(
+        primaryColor: Colors.purple
+      ),
     );
   }
 }
